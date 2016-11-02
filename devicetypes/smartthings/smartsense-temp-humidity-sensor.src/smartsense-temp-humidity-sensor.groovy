@@ -69,15 +69,6 @@ metadata {
 	}
 }
 
-def installed() {
-	log.debug "${device} installed"
-}
-
-def updated() {
-	log.debug "${device} updated"
-	configureHealthCheck()
-}
-
 def parse(String description) {
 	log.debug "description: $description"
 
@@ -216,25 +207,20 @@ private Map getBatteryResult(rawValue) {
 	log.debug 'Battery'
 	def linkText = getLinkText(device)
 
-    def result = [
-    	name: 'battery'
-    ]
+    def result = [:]
 
 	def volts = rawValue / 10
-	def descriptionText
-    if (rawValue == 0 || rawValue == 255) {}
-    else if (volts > 3.5) {
-		result.descriptionText = "${linkText} battery has too much power (${volts} volts)."
-	}
-	else {
+	if (!(rawValue == 0 || rawValue == 255)) {
 		def minVolts = 2.1
-    	def maxVolts = 3.0
+		def maxVolts = 3.0
 		def pct = (volts - minVolts) / (maxVolts - minVolts)
 		def roundedPct = Math.round(pct * 100)
-	    if (roundedPct <= 0)
-		    roundedPct = 1
+		if (roundedPct <= 0)
+			roundedPct = 1
 		result.value = Math.min(100, roundedPct)
 		result.descriptionText = "${linkText} battery was ${result.value}%"
+		result.name = 'battery'
+
 	}
 
 	return result
@@ -277,13 +263,11 @@ def refresh()
 			zigbee.readAttribute(0x0001, 0x0020)
 }
 
-def configureHealthCheck() {
+def configure() {
 	// Device-Watch allows 3 check-in misses from device (plus 1 min lag time)
 	// enrolls with default periodic reporting until newer 5 min interval is confirmed
 	sendEvent(name: "checkInterval", value: 3 * 60 * 60 + 1 * 60, displayed: false, data: [protocol: "zigbee", hubHardwareId: device.hub.hardwareID])
-}
 
-def configure() {
 	log.debug "Configuring Reporting and Bindings."
 	def humidityConfigCmds = [
 		"zdo bind 0x${device.deviceNetworkId} 1 1 0xFC45 {${device.zigbeeId}} {}", "delay 500",
